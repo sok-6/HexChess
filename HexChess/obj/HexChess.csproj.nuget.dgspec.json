@@ -4,14 +4,14 @@
     "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess\\HexChess.csproj": {}
   },
   "projects": {
-    "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess\\HexChess.csproj": {
+    "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess.Core\\HexChess.Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess\\HexChess.csproj",
-        "projectName": "HexChess",
-        "projectPath": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess\\HexChess.csproj",
+        "projectUniqueName": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess.Core\\HexChess.Core.csproj",
+        "projectName": "HexChess.Core",
+        "projectPath": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess.Core\\HexChess.Core.csproj",
         "packagesPath": "C:\\Users\\soksl\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess\\obj\\",
+        "outputPath": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess.Core\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\soksl\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -40,13 +40,9 @@
         "net6.0": {
           "targetAlias": "net6.0",
           "dependencies": {
-            "MonoGame.Content.Builder.Task": {
+            "Newtonsoft.Json": {
               "target": "Package",
-              "version": "[3.8.1.303, )"
-            },
-            "MonoGame.Framework.DesktopGL": {
-              "target": "Package",
-              "version": "[3.8.1.303, )"
+              "version": "[13.0.3, )"
             }
           },
           "imports": [
@@ -65,7 +61,100 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.401\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.101\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess\\HexChess.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess\\HexChess.csproj",
+        "projectName": "HexChess",
+        "projectPath": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess\\HexChess.csproj",
+        "packagesPath": "C:\\Users\\soksl\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\soksl\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net6.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net6.0": {
+            "targetAlias": "net6.0",
+            "projectReferences": {
+              "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess.Core\\HexChess.Core.csproj": {
+                "projectPath": "C:\\Users\\soksl\\source\\repos\\HexChess\\HexChess.Core\\HexChess.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        }
+      },
+      "frameworks": {
+        "net6.0": {
+          "targetAlias": "net6.0",
+          "dependencies": {
+            "MonoGame.Content.Builder.Task": {
+              "target": "Package",
+              "version": "[3.8.1.303, )"
+            },
+            "MonoGame.Extended": {
+              "target": "Package",
+              "version": "[3.8.0, )"
+            },
+            "MonoGame.Extended.Graphics": {
+              "target": "Package",
+              "version": "[3.8.0, )"
+            },
+            "MonoGame.Extended.Input": {
+              "target": "Package",
+              "version": "[3.8.0, )"
+            },
+            "MonoGame.Extended.Tweening": {
+              "target": "Package",
+              "version": "[3.8.0, )"
+            },
+            "MonoGame.Framework.DesktopGL": {
+              "target": "Package",
+              "version": "[3.8.1.303, )"
+            },
+            "Myra": {
+              "target": "Package",
+              "version": "[1.5.5, )"
+            },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[13.0.3, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.101\\RuntimeIdentifierGraph.json"
         }
       }
     }

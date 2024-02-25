@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("HexChess")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dd32cb8d5b9e534203f69a2190d9ca615d27079c")]
 [assembly: System.Reflection.AssemblyProductAttribute("HexChess")]
 [assembly: System.Reflection.AssemblyTitleAttribute("HexChess")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
