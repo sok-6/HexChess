@@ -183,6 +183,15 @@ namespace HexChess.Screens.PieceCellTableScreen
                 }
             }
 
+            if (keyboard.WasKeyJustDown(Keys.OemMinus))
+            {
+                // Minus negates - multiply by -1
+                foreach (var index in _selectedCellIndices)
+                {
+                    _values[index] *= -1;
+                }
+            }
+
             if (keyboard.WasKeyJustDown(Keys.D0)) foreach (var index in _selectedCellIndices) _values[index] = (_values[index] * 10) + 0;
             if (keyboard.WasKeyJustDown(Keys.D1)) foreach (var index in _selectedCellIndices) _values[index] = (_values[index] * 10) + 1;
             if (keyboard.WasKeyJustDown(Keys.D2)) foreach (var index in _selectedCellIndices) _values[index] = (_values[index] * 10) + 2;

@@ -9,12 +9,12 @@ namespace HexChess.Core
     public class Pin
     {
         public int PinnedPieceIndex { get; private set; }
-        public int[] PossibleDestinationIndices { get; private set; }
+        public MovementDirection PinDirection { get; private set; }
 
-        public Pin(int pinnedPieceIndex, int[] possibleDestinationIndices)
+        public Pin(int pinnedPieceIndex, MovementDirection pinDirection)
         {
             PinnedPieceIndex = pinnedPieceIndex;
-            PossibleDestinationIndices = possibleDestinationIndices;
+            PinDirection = pinDirection;
         }
     }
 }

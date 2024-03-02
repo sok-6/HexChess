@@ -99,5 +99,10 @@ namespace HexChess.Core
         }
 
         public override string ToString() => $"({Q},{R},{S})";
+
+        public static MovementDirection? GetSlidingMoveTypeBetween(int from, int to)
+        {
+            return CoordinateHelpers.COORDINATE_PAIR_LINKS[from][to];
+        }
     }
 }

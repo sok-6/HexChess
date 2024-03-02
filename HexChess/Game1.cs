@@ -72,7 +72,6 @@ namespace HexChess
                 Exit();
 
             // TODO: Add your update logic here
-            Window.Title = Mouse.GetState().Position.ToString();
 
             base.Update(gameTime);
         }

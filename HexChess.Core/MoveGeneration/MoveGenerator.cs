@@ -107,7 +107,7 @@ namespace HexChess.Core.MoveGeneration
             foreach (var destinationIndex in MoveLibrary.KingMoves[kingIndex])
             {
                 // If destination is under attack, ignore this move
-                if (boardState.EnemyAttackedIndices[destinationIndex] == true) continue;
+                if (boardState.Attacks.IsUnderAttack(destinationIndex, !boardState.IsWhitesTurn)) continue;
 
                 var destinationPiece = boardState.GetPieceInCell(destinationIndex);
 
@@ -122,26 +122,41 @@ namespace HexChess.Core.MoveGeneration
                 }
             }
 
-            var finalResults = result.Cast<Move>();
+            IEnumerable<Move> finalResults;
+
+            // Filter out invalid moves due to active checks
+            if (boardState.Attacks.IsUnderAttack(kingIndex, !boardState.IsWhitesTurn))
+            {
+                var checks = GetChecks(boardState, !boardState.IsWhitesTurn);
+
+                finalResults = result.Where(m => checks.All(c => c.IsResolvedBy(m)));
+            }
+            else
+            {
+                finalResults = result;
+            }
 
             // Filter out invalid pinned piece moves
             if (pins.Any())
             {
                 var pinnedPieceMoves = finalResults.Where(m => pins.Any(p => p.PinnedPieceIndex == m.StartIndex));
                 var invalidPinnedMoves = pinnedPieceMoves.Where(m =>
-                    pins.First(p => p.PinnedPieceIndex == m.StartIndex)
-                    .PossibleDestinationIndices
-                    .Contains(m.DestinationIndex) == false);
+                {
+                    // Get the direction of the move
+                    var moveDirection = CubeCoordinate.GetSlidingMoveTypeBetween(m.StartIndex, m.DestinationIndex);
+
+                    // If it's not a sliding move it must break the pin
+                    if (moveDirection.HasValue == false) return true;
+
+                    // If the movement direction isn't in line with the pin direction it must break the pin
+                    return !pins
+                        .First(p => p.PinnedPieceIndex == m.StartIndex)
+                        .PinDirection
+                        .IsInLineWith(moveDirection.Value);
+                });
+
 
                 finalResults = finalResults.Except(invalidPinnedMoves).ToList();
-            }
-
-            // Filter out invalid moves due to active checks
-            if (boardState.CurrentChecks.Any())
-            {
-                var validMoves = finalResults.Where(m => boardState.CurrentChecks.All(c => c.IsResolvedBy(m)));
-
-                finalResults = validMoves;
             }
 
             return finalResults;
@@ -225,60 +240,52 @@ namespace HexChess.Core.MoveGeneration
             return result;
         }
 
-        private static BitArray GetSlidingPieceAttacks(BoardState boardState, List<Check> checks, int startIndex, int enemyKingIndex, bool includeFiles, bool includeDiagonals)
+        //private static void GetSlidingPieceAttacks(BoardState boardState, List<Check> checks, int startIndex, int enemyKingIndex, bool includeFiles, bool includeDiagonals)
+        //{
+        //    var directionStartIndex = includeFiles ? 0 : 6;
+        //    var directionEndIndex = includeDiagonals ? 12 : 6;
+
+        //    var startCell = CubeCoordinate.FromArrayIndex(startIndex);
+
+        //    // Loop over all the directions required
+        //    for (int i = directionStartIndex; i < directionEndIndex; i++)
+        //    {
+        //        var currentDirection = (MovementDirection)i;
+
+        //        var currentCell = startCell;
+        //        var searchedCells = new List<int>();
+
+        //        while (true)
+        //        {
+        //            // Step in the current direction
+        //            currentCell = currentCell.Step(currentDirection);
+
+        //            // Check if reached edge of board
+        //            if (!currentCell.IsOnBoard()) break;
+
+        //            var currentCellIndex = currentCell.ToArrayIndex();
+
+        //            searchedCells.Add(currentCellIndex);
+        //            var cellContents = boardState.GetPieceInCell(currentCellIndex);
+
+        //            // If empty, add to attacked cells
+        //            if (cellContents != Piece.None)
+        //            {
+        //                // Check if putting enemy king in check
+        //                if (currentCellIndex == enemyKingIndex)
+        //                {
+        //                    checks.Add(new Check(startIndex, enemyKingIndex, searchedCells.ToArray(), currentDirection));
+        //                }
+
+        //                // Cell is occupied, this will end current direction search
+        //                break;
+        //            }
+        //        }
+        //    }
+        //}
+
+        public static IEnumerable<Check> GetChecks(BoardState boardState, bool getWhiteAttacks)
         {
-            var result = new BitArray(91);
-
-            var directionStartIndex = includeFiles ? 0 : 6;
-            var directionEndIndex = includeDiagonals ? 12 : 6;
-
-            var startCell = CubeCoordinate.FromArrayIndex(startIndex);
-
-            // Loop over all the directions required
-            for (int i = directionStartIndex; i < directionEndIndex; i++)
-            {
-                var currentDirection = (MovementDirection)i;
-
-                var currentCell = startCell;
-                var searchedCells = new List<int>();
-
-                while (true)
-                {
-                    // Step in the current direction
-                    currentCell = currentCell.Step(currentDirection);
-
-                    // Check if reached edge of board
-                    if (!currentCell.IsOnBoard()) break;
-
-                    var currentCellIndex = currentCell.ToArrayIndex();
-
-                    searchedCells.Add(currentCellIndex);
-                    var cellContents = boardState.GetPieceInCell(currentCellIndex);
-
-                    // Add to list of attacked cells
-                    result[currentCellIndex] = true;
-
-                    // If empty, add to attacked cells
-                    if (cellContents != Piece.None)
-                    {
-                        // Check if putting enemy king in check
-                        if (currentCellIndex == enemyKingIndex)
-                        {
-                            checks.Add(new Check(startIndex, enemyKingIndex, searchedCells.ToArray(), currentDirection));
-                        }
-
-                        // Cell is occupied, this will end current direction search
-                        break;
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        public static (BitArray, IEnumerable<Check>) GetAttackedCellsAndChecks(BoardState boardState, bool getWhiteAttacks)
-        {
-            var attackedCellMap = new BitArray(91);
             var checks = new List<Check>();
 
             var enemyKingIndex = getWhiteAttacks ? boardState.BlackKingIndex : boardState.WhiteKingIndex;
@@ -289,16 +296,8 @@ namespace HexChess.Core.MoveGeneration
             {
                 foreach (var a in pawnAttackIndices[pawnIndex])
                 {
-                    attackedCellMap[a] = true;
-
-                    if (a == enemyKingIndex) checks.Add(new Check(pawnIndex, enemyKingIndex, null, null));
+                    if (a == enemyKingIndex) checks.Add(new Check(pawnIndex, enemyKingIndex, null));
                 }
-            }
-
-            // Bishops
-            foreach (var bishopIndex in getWhiteAttacks ? boardState.WhiteBishopIndices : boardState.BlackBishopIndices)
-            {
-                attackedCellMap = attackedCellMap.Or(GetSlidingPieceAttacks(boardState, checks, bishopIndex, enemyKingIndex, false, true));
             }
 
             // Knights
@@ -306,33 +305,23 @@ namespace HexChess.Core.MoveGeneration
             {
                 foreach (var a in MoveLibrary.KnightMoves[knightIndex])
                 {
-                    attackedCellMap[a] = true;
-
-                    if (a == enemyKingIndex) checks.Add(new Check(knightIndex, enemyKingIndex, null, null));
+                    if (a == enemyKingIndex) checks.Add(new Check(knightIndex, enemyKingIndex, null));
                 }
             }
 
-            // Rook
-            foreach (var rookIndex in getWhiteAttacks ? boardState.WhiteRookIndices : boardState.BlackRookIndices)
+            // Sliding pieces
+            foreach (var direction in Enum.GetValues<MovementDirection>())
             {
-                attackedCellMap = attackedCellMap.Or(GetSlidingPieceAttacks(boardState, checks, rookIndex, enemyKingIndex, true, false));
+                var attackerIndex = boardState.Attacks.GetSlidingAttackIndexFromDirection(enemyKingIndex, getWhiteAttacks, direction);
+
+                if (attackerIndex.HasValue)
+                {
+                    checks.Add(new Check(attackerIndex.Value, enemyKingIndex, direction));
+                }
+
             }
 
-            // Queens
-            foreach (var queenIndex in getWhiteAttacks ? boardState.WhiteQueenIndices : boardState.BlackQueenIndices)
-            {
-                attackedCellMap = attackedCellMap.Or(GetSlidingPieceAttacks(boardState, checks, queenIndex, enemyKingIndex, true, true));
-            }
-
-            // King
-            foreach (var a in MoveLibrary.KingMoves[getWhiteAttacks ? boardState.WhiteKingIndex : boardState.BlackKingIndex])
-            {
-                attackedCellMap[a] = true;
-
-                // Kings can't deliver check
-            }
-
-            return (attackedCellMap, checks);
+            return checks;
         }
 
         public static IEnumerable<Pin> GetPins(BoardState boardState, bool checkWhitePiecePins)
@@ -346,66 +335,95 @@ namespace HexChess.Core.MoveGeneration
             {
                 var currentCell = startCell;
                 var currentDirection = (MovementDirection)i;
-
-                CubeCoordinate friendlyPieceCoordinate = null;
-                var searchedCells = new List<CubeCoordinate>();
+                var oppositeDirection = currentDirection.GetReverse();
 
                 while (true)
                 {
                     currentCell = currentCell.Step(currentDirection);
 
-                    // If reached edge of the board, stop
                     if (currentCell.IsOnBoard() == false) break;
 
-                    var currentPiece = boardState.GetPieceInCell(currentCell.ToArrayIndex());
+                    int currentCellIndex = currentCell.ToArrayIndex();
 
-                    if (currentPiece == Piece.None)
+                    var currentPiece = boardState.GetPieceInCell(currentCellIndex);
+
+                    if (currentPiece != Piece.None)
                     {
-                        // Nothing here, it's an available location if there is a pin
-                        searchedCells.Add(currentCell);
-                    }
-                    else
-                    {
+                        // Pins can only be held by friendly pieces
                         if (currentPiece.IsAllyOf(thisKing))
                         {
-                            if (friendlyPieceCoordinate == null)
+                            // Check if a sliding piece is attacking the friendly piece in the opposite direction
+                            if (boardState.Attacks.IsSlidingPieceAttackingFromDirection(currentCellIndex, !checkWhitePiecePins, oppositeDirection))
                             {
-                                // No friendly pieces found yet, so this could still be a pin
-                                friendlyPieceCoordinate = currentCell;
-                            }
-                            else
-                            {
-                                // Already 1 friendly piece found, no pin
-                                break;
+                                // We have a pin!
+                                result.Add(new Pin(currentCellIndex, oppositeDirection));
                             }
                         }
-                        else
-                        {
-                            // Enemy piece found, check if a single friendly piece is in the way
-                            if (friendlyPieceCoordinate == null)
-                            {
-                                // No friendly pieces in the way, no pin
-                                break;
-                            }
 
-                            // See if enemy piece can attack along this vector
-                            if ((i < 6 && currentPiece.CanMoveAlongFiles()) || (i >= 6 && currentPiece.CanMoveAlongDiagonals()))
-                            {
-                                // Valid pin, add to list
-                                searchedCells.Add(currentCell); // Add the enemy cell to the list, a capture of the pinning piece is still valid
-
-                                result.Add(new Pin(friendlyPieceCoordinate.ToArrayIndex(), searchedCells.Select(x => x.ToArrayIndex()).ToArray()));
-                                break;
-                            }
-                            else
-                            {
-                                // Found piece can't attack along this direction, no pin
-                                break;
-                            }
-
-                        }
+                        // Whether friendly or not, end search in this direction
+                        break;
                     }
                 }
+
+                //CubeCoordinate friendlyPieceCoordinate = null;
+                //var searchedCells = new List<CubeCoordinate>();
+
+                //while (true)
+                //{
+                //    currentCell = currentCell.Step(currentDirection);
+
+                //    // If reached edge of the board, stop
+                //    if (currentCell.IsOnBoard() == false) break;
+
+                //    var currentPiece = boardState.GetPieceInCell(currentCell.ToArrayIndex());
+
+                //    if (currentPiece == Piece.None)
+                //    {
+                //        // Nothing here, it's an available location if there is a pin
+                //        searchedCells.Add(currentCell);
+                //    }
+                //    else
+                //    {
+                //        if (currentPiece.IsAllyOf(thisKing))
+                //        {
+                //            if (friendlyPieceCoordinate == null)
+                //            {
+                //                // No friendly pieces found yet, so this could still be a pin
+                //                friendlyPieceCoordinate = currentCell;
+                //            }
+                //            else
+                //            {
+                //                // Already 1 friendly piece found, no pin
+                //                break;
+                //            }
+                //        }
+                //        else
+                //        {
+                //            // Enemy piece found, check if a single friendly piece is in the way
+                //            if (friendlyPieceCoordinate == null)
+                //            {
+                //                // No friendly pieces in the way, no pin
+                //                break;
+                //            }
+
+                //            // See if enemy piece can attack along this vector
+                //            if ((i < 6 && currentPiece.CanMoveAlongFiles()) || (i >= 6 && currentPiece.CanMoveAlongDiagonals()))
+                //            {
+                //                // Valid pin, add to list
+                //                searchedCells.Add(currentCell); // Add the enemy cell to the list, a capture of the pinning piece is still valid
+
+                //                result.Add(new Pin(friendlyPieceCoordinate.ToArrayIndex(), searchedCells.Select(x => x.ToArrayIndex()).ToArray()));
+                //                break;
+                //            }
+                //            else
+                //            {
+                //                // Found piece can't attack along this direction, no pin
+                //                break;
+                //            }
+
+                //        }
+                //    }
+                //}
             }
 
             return result;

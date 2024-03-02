@@ -47,6 +47,8 @@ namespace HexChess.Screens.ChessScreen
 
         private Task<Move> _aiThinkTask;
 
+        private IEnumerable<Move> _moves;
+
         public ChessScreen(Game game, InitialisationOptions options) : base(game)
         {
             _displayBoard = new GraphicalBoard(new Vector2(600, 500));
@@ -57,6 +59,8 @@ namespace HexChess.Screens.ChessScreen
             _blackAi = GetAiPlayer(options.BlackPlayer);
 
             _aiThinkTask = null;
+
+            _moves = Core.MoveGeneration.MoveGenerator.GetMoves(_boardState);
         }
 
         private IChessAi GetAiPlayer(InitialisationOptions.PlayerType playerType)
@@ -95,7 +99,8 @@ namespace HexChess.Screens.ChessScreen
                 // Only undo move if AI not thinking
                 if (_keyboardState.WasKeyJustDown(Keys.Z))
                 {
-                    _boardState.UnmakeMove(true);
+                    _boardState.UnmakeMove();
+                    _moves = Core.MoveGeneration.MoveGenerator.GetMoves(_boardState);
                     SetBoardColourOverrides(null);
                 }
 
@@ -113,7 +118,9 @@ namespace HexChess.Screens.ChessScreen
                         }
                         else
                         {
-                            var move = _boardState.ValidateMove(_dragStartCell, releasededCellCoordinate);
+                            _moves = Core.MoveGeneration.MoveGenerator.GetMoves(_boardState);
+
+                            var move = _moves.FirstOrDefault(m => m.StartCoordinate == _dragStartCell && m.DestinationCoordinate == releasededCellCoordinate);
 
                             if (move == null)
                             {
@@ -125,7 +132,7 @@ namespace HexChess.Screens.ChessScreen
                                 // Valid move, make the move on the board and highlight the start and end of the move
                                 ExecuteMove(move, false);
 
-                                _data = _boardState.GameState == GameState.Normal ? "" : _boardState.GameState.ToString();
+                                //_data = _boardState.GameState == GameState.Normal ? "" : _boardState.GameState.ToString();
 
                                 _dragStartCell = null;
 
@@ -152,7 +159,8 @@ namespace HexChess.Screens.ChessScreen
 
                             _displayBoard.SetCellColourOverride(clickedCellCoordinate, HexCell.ColourOverride.Purple);
 
-                            var validDestinations = GetValidDestinations(_boardState, clickedCellCoordinate);
+                            var validDestinations = CoordinateHelpers.BOARD_COORDINATES.Where(c =>
+                                _moves.Any(m => m.StartCoordinate == clickedCellCoordinate && m.DestinationCoordinate == c));
 
                             _dragStartCell = clickedCellCoordinate;
 
@@ -170,6 +178,10 @@ namespace HexChess.Screens.ChessScreen
 
                 SetBoardColourOverrides(null);
             }
+            else
+            {
+                _game.Window.Title = _blackAi.ProgressString.Read();
+            }
         }
 
         private void ExecuteMove(Move move, bool animateMove, int currentMs = 0) 
@@ -179,11 +191,15 @@ namespace HexChess.Screens.ChessScreen
                 _displayBoard.InitialiseAnimation(_boardState, move, currentMs);
             }
 
-            _boardState.MakeMove(move, true);
-            
+            _boardState.MakeMove(move);
+
+            _moves = Core.MoveGeneration.MoveGenerator.GetMoves(_boardState);
+
+            var gameState = _boardState.UpdateGameState(_moves.Count());
+
             // Update the FEN string
             _ui.SetFenText(_boardState.GetFenString());
-            _ui.AddMove(move, _boardState.GameState);
+            _ui.AddMove(move, gameState);
 
             if (_boardState.IsWhitesTurn && _whiteAi != null)
             {
@@ -208,9 +224,10 @@ namespace HexChess.Screens.ChessScreen
             }
 
             // Colour enemy king cell red if currently in check
-            if (_boardState.CurrentChecks.Any())
+            var kingIndex = _boardState.IsWhitesTurn ? _boardState.WhiteKingIndex : _boardState.BlackKingIndex;
+
+            if (_boardState.Attacks.IsUnderAttack(kingIndex, !_boardState.IsWhitesTurn))
             {
-                var kingIndex = _boardState.IsWhitesTurn ? _boardState.WhiteKingIndex : _boardState.BlackKingIndex;
                 _displayBoard.SetCellColourOverride(kingIndex, HexCell.ColourOverride.Red);
             }
 
@@ -223,10 +240,10 @@ namespace HexChess.Screens.ChessScreen
             }
         }
 
-        private IEnumerable<CubeCoordinate> GetValidDestinations(BoardState boardState, CubeCoordinate start)
-        {
-            return CoordinateHelpers.BOARD_COORDINATES.Where(x => boardState.ValidateMove(start, x) != null);
-        }
+        //private IEnumerable<CubeCoordinate> GetValidDestinations(BoardState boardState, CubeCoordinate start)
+        //{
+        //    return CoordinateHelpers.BOARD_COORDINATES.Where(x => boardState.ValidateMove(start, x) != null);
+        //}
 
         public override void Draw(GameTime gameTime)
         {

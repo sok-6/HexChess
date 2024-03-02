@@ -8,17 +8,15 @@ namespace HexChess.Core
 {
     public class Check
     {
-        public Check(int attackingPieceIndex, int kingIndex, IEnumerable<int> blockIndices, MovementDirection? slidingAttackerDirection)
+        public Check(int attackingPieceIndex, int kingIndex, MovementDirection? slidingAttackerDirection)
         {
             AttackingPieceIndex = attackingPieceIndex;
             KingIndex = kingIndex;
-            BlockIndices = blockIndices;
             SlidingAttackerDirection = slidingAttackerDirection;
         }
 
         public int AttackingPieceIndex { get; private set; }
         public int KingIndex { get; private set; }
-        public IEnumerable<int> BlockIndices { get; private set; }
         public MovementDirection? SlidingAttackerDirection { get; private set; }
 
         public bool IsResolvedBy(Move move)
@@ -41,9 +39,15 @@ namespace HexChess.Core
             }
 
             // Moving in the path of the attacking piece
-            if (BlockIndices != null && BlockIndices.Contains(move.DestinationIndex))
+            if (SlidingAttackerDirection != null)
             {
-                return true;
+                var kingToBlockerDirection = CubeCoordinate.GetSlidingMoveTypeBetween(KingIndex, move.DestinationIndex);
+                var blockerToAttackerDirection = CubeCoordinate.GetSlidingMoveTypeBetween(move.DestinationIndex, AttackingPieceIndex);
+
+                if (kingToBlockerDirection.HasValue && blockerToAttackerDirection.HasValue && kingToBlockerDirection == blockerToAttackerDirection)
+                {
+                    return true;
+                }
             }
 
             // Capturing the attacking piece

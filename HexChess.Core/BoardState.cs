@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -57,13 +58,9 @@ namespace HexChess.Core
 
         public int TurnNumber { get; private set; }
 
-        public BitArray EnemyAttackedIndices { get; private set; }
+        public AttackManager Attacks { get; private set; }
 
-        public IEnumerable<Check> CurrentChecks { get; private set; }
-
-        public IEnumerable<Move> CurrentMoves { get; private set; }
-
-        public GameState GameState { get; private set; }
+        //public GameState GameState { get; private set; }
 
         private Stack<MoveRecord> _stateStack;
 
@@ -89,9 +86,39 @@ namespace HexChess.Core
 
             _stateStack = new Stack<MoveRecord>();
 
-            LoadFenString(fenString ?? START_FEN);
+            Attacks = new AttackManager();
 
-            UpdateGameState();
+            LoadFenString(fenString ?? START_FEN);
+        }
+
+        public BoardState(BoardState parent)
+        {
+            _cells = new Piece[91];
+            for (var i = 0; i < 91; i++) _cells[i] = parent.GetPieceInCell(i);
+
+            _whitePawnIndices = new HashSet<int>(parent.WhitePawnIndices);
+            _whiteBishopIndices = new HashSet<int>(parent.WhiteBishopIndices);
+            _whiteKnightIndices = new HashSet<int>(parent.WhiteKnightIndices);
+            _whiteRookIndices = new HashSet<int>(parent.WhiteRookIndices);
+            _whiteQueenIndices = new HashSet<int>(parent.WhiteQueenIndices);
+            WhiteKingIndex = parent.WhiteKingIndex;
+
+            _blackPawnIndices = new HashSet<int>(parent.BlackPawnIndices);
+            _blackBishopIndices = new HashSet<int>(parent.BlackBishopIndices);
+            _blackKnightIndices = new HashSet<int>(parent.BlackKnightIndices);
+            _blackRookIndices = new HashSet<int>(parent.BlackRookIndices);
+            _blackQueenIndices = new HashSet<int>(parent.BlackQueenIndices);
+            BlackKingIndex = parent.BlackKingIndex;
+
+            IsWhitesTurn = parent.IsWhitesTurn;
+            EnPassantIndex = parent.EnPassantIndex;
+            HalfMoveClock = parent.HalfMoveClock;
+            TurnNumber = parent.TurnNumber;
+
+            Attacks = new AttackManager();
+            Attacks.Recalculate(this);
+
+            _stateStack = new Stack<MoveRecord>();
         }
 
         private void LoadFenString(string fenString)
@@ -217,33 +244,7 @@ namespace HexChess.Core
             TurnNumber = int.Parse(fenParts[4]);
         }
 
-        public Move ValidateMove(CubeCoordinate start, CubeCoordinate destination)
-        {
-            if (CurrentMoves == null)
-            {
-                CurrentMoves = MoveGenerator.GetMoves(this);
-            }
-
-            var matches = CurrentMoves.Where(m => m.StartCoordinate == start && m.DestinationCoordinate == destination);
-
-            if (matches.Count() == 0)
-            {
-                return null;
-            }
-            else if (matches.Count() == 1)
-            {
-                return matches.First();
-            }
-            else
-            {
-                // How to choose which promotion to take?
-                var queenPromotion = matches.FirstOrDefault(m => m.Flags == Move.MoveFlags.PromoteToQueen);
-
-                return queenPromotion ?? matches.First();
-            }
-        }
-
-        public void MakeMove(Move move, bool generateMoves)
+        public void MakeMove(Move move)
         {
             var moveRecord = new MoveRecord()
             {
@@ -251,7 +252,7 @@ namespace HexChess.Core
                 PreviousTurnCounter = TurnNumber,
                 PreviousEnPassantIndex = EnPassantIndex,
                 PreviousWhiteTurnEh = IsWhitesTurn,
-                PreviousGameState = GameState,
+                //PreviousGameState = GameState,
                 RemovedPieces = new List<(int, Piece)>(),
                 AddedPieces = new List<(int, Piece)>()
             };
@@ -320,20 +321,18 @@ namespace HexChess.Core
             // Toggle turn
             ToggleTurn();
 
-            UpdateGameState(generateMoves);
-
             moveRecord.NextEnPassantIndex = EnPassantIndex;
             moveRecord.NextHalfMoveClock = HalfMoveClock;
             moveRecord.NextTurnCounter = TurnNumber;
             moveRecord.NextWhiteTurnEh = IsWhitesTurn;
-            moveRecord.NextGameState = GameState;
+            //moveRecord.NextGameState = GameState;
             moveRecord.LastMoveHighlightIndex1 = move.StartIndex;
             moveRecord.LastMoveHighlightIndex2 = move.DestinationIndex;
 
             _stateStack.Push(moveRecord);
         }
 
-        public void UnmakeMove(bool generateMoves)
+        public void UnmakeMove()
         {
             // Only undo if move on the stack
             if (_stateStack.Any() == false)
@@ -347,7 +346,7 @@ namespace HexChess.Core
             TurnNumber = lastMoveRecord.PreviousTurnCounter;
             IsWhitesTurn = lastMoveRecord.PreviousWhiteTurnEh;
             EnPassantIndex = lastMoveRecord.PreviousEnPassantIndex;
-            GameState = lastMoveRecord.PreviousGameState;
+            //GameState = lastMoveRecord.PreviousGameState;
 
             // Remove pieces added last move
             foreach (var (i, p) in lastMoveRecord.AddedPieces)
@@ -360,57 +359,32 @@ namespace HexChess.Core
             {
                 PlacePieceInCell(p, i);
             }
-
-            // Redo checks
-            (EnemyAttackedIndices, CurrentChecks) = MoveGenerator.GetAttackedCellsAndChecks(this, !IsWhitesTurn);
-
-            if (generateMoves)
-            {
-                CurrentMoves = MoveGenerator.GetMoves(this, false);
-            }
-            else
-            {
-                CurrentMoves = null;
-            }
         }
 
-        private void UpdateGameState(bool generateMoves = true)
+        public GameState UpdateGameState(int availableMoveCount)
         {
-            // Update the lists of attacked cells
-            (EnemyAttackedIndices, CurrentChecks) = MoveGenerator.GetAttackedCellsAndChecks(this, !IsWhitesTurn);
-
-            if (generateMoves)
+            if ((IsWhitesTurn && Attacks.IsUnderAttack(WhiteKingIndex, false)) || (!IsWhitesTurn && Attacks.IsUnderAttack(BlackKingIndex, true)))
             {
-                CurrentMoves = MoveGenerator.GetMoves(this, false);
-
-                if (CurrentChecks.Any())
+                if (availableMoveCount > 0)
                 {
-                    if (CurrentMoves.Any())
-                    {
-                        GameState = GameState.Check;
-                    }
-                    else
-                    {
-                        GameState = GameState.Checkmate;
-                    }
-                }
-                else if (!CurrentMoves.Any())
-                {
-                    GameState = GameState.Stalemate;
-                }
-                else if (HalfMoveClock == 100)
-                {
-                    GameState = GameState.Draw;
+                    return GameState.Check;
                 }
                 else
                 {
-                    GameState = GameState.Normal;
+                    return GameState.Checkmate;
                 }
+            }
+            else if (availableMoveCount > 0)
+            {
+                return GameState.Stalemate;
+            }
+            else if (HalfMoveClock == 100)
+            {
+                return GameState.Draw;
             }
             else
             {
-                CurrentMoves = null;
-                GameState = GameState.Normal;
+                return GameState.Normal;
             }
         }
 
@@ -459,10 +433,16 @@ namespace HexChess.Core
 
                 set.Add(index);
             }
+
+            // Update the attacked cells
+            Attacks.AddPiece(index, piece, this);
         }
 
         private void RemovePieceFromCell(Piece piece, int index)
         {
+            // Update attacks first
+            Attacks.RemovePiece(index, piece, this);
+
             // Clear cell array
             _cells[index] = Piece.None;
 

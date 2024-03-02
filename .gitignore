@@ -44,7 +44,6 @@ _ReSharper*/
 
 #Project files
 [Bb]uild/
-[Dd]ebug/
 
 #Subversion files
 .svn
@@ -64,5 +63,4 @@ monodroid*.msi
 *.VC.opendb
 
 artifacts/
-.vs/
-*
+.vs

@@ -5,5 +5,7 @@
         Move ChooseMove(BoardState boardState);
 
         int Evaluate(BoardState boardState);
+
+        ThreadSafeString ProgressString { get; } 
     }
 }

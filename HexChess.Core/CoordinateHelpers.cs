@@ -27,9 +27,9 @@ namespace HexChess.Core
             coord.R > -6 && coord.R < 6 && 
             coord.S > -6 && coord.S < 6;
 
-        public static IReadOnlyList<CubeCoordinate> BOARD_COORDINATES => _board_coordinates.Value;
-        private static readonly Lazy<IReadOnlyList<CubeCoordinate>> _board_coordinates =
-            new Lazy<IReadOnlyList<CubeCoordinate>>(() =>
+        public static IReadOnlyList<CubeCoordinate> BOARD_COORDINATES { get; } = GetBoardCoordinates();
+
+        private static List<CubeCoordinate> GetBoardCoordinates()
         {
             var testBoard = new List<CubeCoordinate>();
 
@@ -46,6 +46,49 @@ namespace HexChess.Core
             }
 
             return testBoard.OrderBy(x => x.ToArrayIndex()).ToList();
-        });
+        }
+
+        /// <summary>
+        /// Describes which direction would be used to get from a source cell to a destination cell. If it's not just one direction (e.g. knight move) lookup returns null
+        /// </summary>
+        public static IReadOnlyList<IReadOnlyList<MovementDirection?>> COORDINATE_PAIR_LINKS { get; } = GetCoordinatePairLinks();
+
+        private static MovementDirection?[][] GetCoordinatePairLinks()
+        {
+            var result = new MovementDirection?[91][];
+
+            for (int i = 0; i < 91; i++)
+            {
+                // Create empty set for this cell
+                result[i] = new MovementDirection?[91];
+
+                for (int j = 0; j < 91; j++)
+                {
+                    result[i][j] = null;
+                }
+
+                // Move in each of the 12 directions
+                foreach (var direction in Enum.GetValues<MovementDirection>())
+                {
+                    var currentCell = CubeCoordinate.FromArrayIndex(i);
+
+                    // Step continually in this direction until the edge of the board
+                    while (true)
+                    {
+                        currentCell = currentCell.Step(direction);
+
+                        if (currentCell.IsOnBoard() == false)
+                        {
+                            break;
+                        }
+
+                        // Update the lookup with the current direction
+                        result[i][currentCell.ToArrayIndex()] = direction;
+                    }
+                }
+            }
+
+            return result;
+        }
     }
 }
