@@ -69,6 +69,11 @@ namespace HexChess.Core
             return new CubeCoordinate(a.Q + b.Q, a.R + b.R, a.S + b.S);
         }
 
+        public static int DistanceBetween(CubeCoordinate a, CubeCoordinate b)
+        {
+            return (Math.Abs(a.Q - b.Q) + Math.Abs(a.R - b.R) + Math.Abs(a.S - b.S)) / 2;
+        }
+
         public static bool operator ==(CubeCoordinate a, CubeCoordinate b)
         {
             if (ReferenceEquals(a, b)) return true;

@@ -1,8 +1,11 @@
 ﻿using HexChess.Core.MoveGeneration;
+using NLog;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,6 +15,8 @@ namespace HexChess.Core
     public class BoardState
     {
         private const string START_FEN = "BKNRP1/QB2P2/N1B1P3/R3P4/PPPPP5/11/5ppppp/4p3r/3p1b1n/2p2bk/1prnqb w - 0 1";
+
+        private static Logger _log = LogManager.GetCurrentClassLogger();
 
         //public IReadOnlyList<Piece> Cells => _cells;
         private Piece[] _cells;
@@ -60,9 +65,11 @@ namespace HexChess.Core
 
         public AttackManager Attacks { get; private set; }
 
-        //public GameState GameState { get; private set; }
-
         private Stack<MoveRecord> _stateStack;
+
+        public ulong ZobristHash { get; private set; }
+
+        public RepetitionTable RepetitionTable { get; private set; }
 
         /// <summary>
         /// Creates a new board state
@@ -88,7 +95,12 @@ namespace HexChess.Core
 
             Attacks = new AttackManager();
 
+            ZobristHash = 0;
+
             LoadFenString(fenString ?? START_FEN);
+
+            RepetitionTable = new RepetitionTable();
+            RepetitionTable.AddVisit(ZobristHash);
         }
 
         public BoardState(BoardState parent)
@@ -115,10 +127,14 @@ namespace HexChess.Core
             HalfMoveClock = parent.HalfMoveClock;
             TurnNumber = parent.TurnNumber;
 
+            ZobristHash = parent.ZobristHash;
+
             Attacks = new AttackManager();
             Attacks.Recalculate(this);
 
             _stateStack = new Stack<MoveRecord>();
+
+            RepetitionTable = parent.RepetitionTable.Clone();
         }
 
         private void LoadFenString(string fenString)
@@ -246,6 +262,8 @@ namespace HexChess.Core
 
         public void MakeMove(Move move)
         {
+            _log.Debug($"Making move {move}");
+
             var moveRecord = new MoveRecord()
             {
                 PreviousHalfMoveClock = HalfMoveClock,
@@ -254,7 +272,8 @@ namespace HexChess.Core
                 PreviousWhiteTurnEh = IsWhitesTurn,
                 //PreviousGameState = GameState,
                 RemovedPieces = new List<(int, Piece)>(),
-                AddedPieces = new List<(int, Piece)>()
+                AddedPieces = new List<(int, Piece)>(),
+                Move = move
             };
 
             // If move is a capture, remove target from set of pieces
@@ -302,9 +321,20 @@ namespace HexChess.Core
             if (move.Flags == Move.MoveFlags.DoublePawnPush)
             {
                 EnPassantIndex = move.EnPassantIndex;
+
+                // Update the hash
+                ZobristHash ^= ZobristHelper.EN_PASSANT_CELL_VALUES[move.EnPassantIndex];
+                _log.Debug($"HASH - En Passant {move.EnPassantIndex} - double pawn push");
             }
             else
             {
+                if (EnPassantIndex.HasValue)
+                {
+                    // Update the hash
+                    ZobristHash ^= ZobristHelper.EN_PASSANT_CELL_VALUES[EnPassantIndex.Value];
+                    _log.Debug($"HASH - En Passant {EnPassantIndex.Value} - previous EP");
+                }
+
                 EnPassantIndex = null;
             }
 
@@ -321,6 +351,9 @@ namespace HexChess.Core
             // Toggle turn
             ToggleTurn();
 
+            // Add new position to repetition table
+            RepetitionTable.AddVisit(ZobristHash);
+
             moveRecord.NextEnPassantIndex = EnPassantIndex;
             moveRecord.NextHalfMoveClock = HalfMoveClock;
             moveRecord.NextTurnCounter = TurnNumber;
@@ -334,19 +367,40 @@ namespace HexChess.Core
 
         public void UnmakeMove()
         {
+            _log.Debug("UnmakeMove");
+
             // Only undo if move on the stack
             if (_stateStack.Any() == false)
             {
                 return;
             }
 
+            // Remove position from repetition table
+            RepetitionTable.RemoveVisit(ZobristHash);
+
+            // Remove En Passant index from the hash if present
+            if (EnPassantIndex.HasValue)
+            {
+                ZobristHash ^= ZobristHelper.EN_PASSANT_CELL_VALUES[EnPassantIndex.Value];
+                _log.Debug($"HASH - En Passant {EnPassantIndex.Value} - remove previous EP");
+            }
+
             var lastMoveRecord = _stateStack.Pop();
 
             HalfMoveClock = lastMoveRecord.PreviousHalfMoveClock;
             TurnNumber = lastMoveRecord.PreviousTurnCounter;
-            IsWhitesTurn = lastMoveRecord.PreviousWhiteTurnEh;
+            //IsWhitesTurn = lastMoveRecord.PreviousWhiteTurnEh;
             EnPassantIndex = lastMoveRecord.PreviousEnPassantIndex;
             //GameState = lastMoveRecord.PreviousGameState;
+
+            ToggleTurn();
+
+            // Add En Passant index from the hash if present
+            if (EnPassantIndex.HasValue)
+            {
+                ZobristHash ^= ZobristHelper.EN_PASSANT_CELL_VALUES[EnPassantIndex.Value];
+                _log.Debug($"HASH - En Passant {EnPassantIndex.Value} - reinstating EP from stack");
+            }
 
             // Remove pieces added last move
             foreach (var (i, p) in lastMoveRecord.AddedPieces)
@@ -374,13 +428,17 @@ namespace HexChess.Core
                     return GameState.Checkmate;
                 }
             }
-            else if (availableMoveCount > 0)
+            else if (availableMoveCount == 0)
             {
                 return GameState.Stalemate;
             }
             else if (HalfMoveClock == 100)
             {
                 return GameState.Draw;
+            }
+            else if (RepetitionTable.GetVisitCount(ZobristHash) == 3)
+            {
+                return GameState.ThreefoldRepetitionDraw;
             }
             else
             {
@@ -436,6 +494,10 @@ namespace HexChess.Core
 
             // Update the attacked cells
             Attacks.AddPiece(index, piece, this);
+
+            // Update the hash
+            ZobristHash ^= ZobristHelper.CELL_PIECE_VALUES[index, (int)piece - 9];
+            _log.Debug($"HASH - Piece index {index} pieceValue {(int)piece - 9}");
         }
 
         private void RemovePieceFromCell(Piece piece, int index)
@@ -453,6 +515,10 @@ namespace HexChess.Core
 
                 set.Remove(index);
             }
+
+            // Update the hash
+            ZobristHash ^= ZobristHelper.CELL_PIECE_VALUES[index, (int)piece - 9];
+            _log.Debug($"HASH - Piece index {index} pieceValue {(int)piece - 9}");
         }
 
         public void ToggleTurn()
@@ -463,6 +529,10 @@ namespace HexChess.Core
             }
 
             IsWhitesTurn = !IsWhitesTurn;
+
+            // Update the hash
+            ZobristHash ^= ZobristHelper.WHITE_TO_MOVE_VALUE;
+            _log.Debug($"HASH - WTM");
         }
 
         public (int?, int?) GetLastMoveHighlightIndices()

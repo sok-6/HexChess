@@ -10,10 +10,15 @@ namespace HexChess.Core
     {
         public static void Initialise()
         {
+            NLog.LogManager.GetCurrentClassLogger().Debug("Derpy doo");
+
             // Populate the list of moves for non-sliding pieces
             MoveGeneration.MoveLibrary.PopulateMoves();
 
-            CreateDefaultAiJsonString();
+            // Get the hash values for the zobrist hashing scheme
+            ZobristHelper.GenerateZobristHashValues();
+
+            //CreateDefaultAiJsonString();
         }
 
         private static void CreateDefaultAiJsonString()

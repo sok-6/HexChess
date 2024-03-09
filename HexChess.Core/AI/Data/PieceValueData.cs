@@ -13,6 +13,5 @@ namespace HexChess.Core.AI.Data
         public int KnightValue { get; set; }
         public int RookValue { get; set; }
         public int QueenValue { get; set; }
-        public int KingValue { get; set; }
     }
 }

@@ -22,5 +22,6 @@ namespace HexChess.Core
         public int LastMoveHighlightIndex2 { get; set; }
         public List<(int, Piece)> RemovedPieces { get; set; }
         public List<(int, Piece)> AddedPieces { get; set; }
+        public Move Move { get; set; }
     }
 }

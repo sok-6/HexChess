@@ -12,6 +12,7 @@ namespace HexChess.Core
         Check,
         Draw,
         Stalemate,
-        Checkmate
+        Checkmate,
+        ThreefoldRepetitionDraw
     }
 }

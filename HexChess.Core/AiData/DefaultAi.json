@@ -4,8 +4,12 @@
     "BishopValue": 300,
     "KnightValue": 350,
     "RookValue": 550,
-    "QueenValue": 1000,
-    "KingValue": 200
+    "QueenValue": 1000
+  },
+  "StrategyWeights":{
+      "MopUpDistanceBetweenKingsWeight": 1500,
+      "MopUpEnemyKingCentreDistanceWeight": 800,
+      "MopUpEnemyPieceCountWeight": 1000
   },
   "PieceCellTables": {
     "PawnCellTable": [

@@ -49,6 +49,8 @@ namespace HexChess.Screens.ChessScreen
 
         private IEnumerable<Move> _moves;
 
+        private bool _isGameRunning;
+
         public ChessScreen(Game game, InitialisationOptions options) : base(game)
         {
             _displayBoard = new GraphicalBoard(new Vector2(600, 500));
@@ -101,6 +103,7 @@ namespace HexChess.Screens.ChessScreen
                 {
                     _boardState.UnmakeMove();
                     _moves = Core.MoveGeneration.MoveGenerator.GetMoves(_boardState);
+                    _data = _boardState.UpdateGameState(_moves.Count()).ToString();
                     SetBoardColourOverrides(null);
                 }
 
@@ -131,8 +134,6 @@ namespace HexChess.Screens.ChessScreen
                             {
                                 // Valid move, make the move on the board and highlight the start and end of the move
                                 ExecuteMove(move, false);
-
-                                //_data = _boardState.GameState == GameState.Normal ? "" : _boardState.GameState.ToString();
 
                                 _dragStartCell = null;
 
@@ -196,6 +197,7 @@ namespace HexChess.Screens.ChessScreen
             _moves = Core.MoveGeneration.MoveGenerator.GetMoves(_boardState);
 
             var gameState = _boardState.UpdateGameState(_moves.Count());
+            _data = gameState.ToString();
 
             // Update the FEN string
             _ui.SetFenText(_boardState.GetFenString());
@@ -239,11 +241,6 @@ namespace HexChess.Screens.ChessScreen
                 }
             }
         }
-
-        //private IEnumerable<CubeCoordinate> GetValidDestinations(BoardState boardState, CubeCoordinate start)
-        //{
-        //    return CoordinateHelpers.BOARD_COORDINATES.Where(x => boardState.ValidateMove(start, x) != null);
-        //}
 
         public override void Draw(GameTime gameTime)
         {

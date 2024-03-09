@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using MonoGame.Extended.Screens;
 using MonoGame.Extended.Screens.Transitions;
+using NLog;
 
 
 namespace HexChess
@@ -18,6 +19,13 @@ namespace HexChess
 
         public Game1()
         {
+            NLog.LogManager.Setup().LoadConfiguration(builder =>
+            {
+                builder.ForLogger().FilterMinLevel(LogLevel.Debug).WriteToFile(fileName: "${shortdate}.log");
+            });
+
+            NLog.LogManager.GetCurrentClassLogger().Debug("derp");
+
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
